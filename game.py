@@ -17,12 +17,14 @@ import time
 import webbrowser
 
 PORT = 8000
+LOTTIE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lottie")
 
 
 INDEX_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<script src="https://cdn.jsdelivr.net/npm/lottie-web@5.12.2/build/player/lottie.min.js"></script>
 <title>Sum Hunter</title>
 <style>
   * { box-sizing: border-box; }
@@ -72,6 +74,13 @@ INDEX_HTML = """<!DOCTYPE html>
     border: 2px solid #d8d0f5;
     border-radius: 12px;
     outline: none;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
   input[type=number]:focus { border-color: #5b3fce; }
   .plus { font-size: 28px; font-weight: 700; color: #5b3fce; }
@@ -135,23 +144,24 @@ INDEX_HTML = """<!DOCTYPE html>
     position: fixed;
     inset: 0;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+    padding-top: 6vh;
     pointer-events: none;
     z-index: 10000;
     transition: opacity .8s ease, transform .8s ease;
   }
   .win-overlay.fade-out { opacity: 0; transform: scale(1.15); }
   .win-text {
-    font-size: 88px;
+    font-size: 52px;
     font-weight: 900;
     color: #fff;
     text-align: center;
-    padding: 18px 36px;
-    border-radius: 24px;
+    padding: 12px 26px;
+    border-radius: 18px;
     background: linear-gradient(135deg, #ff7a91, #ffd86b 50%, #5b3fce);
-    box-shadow: 0 24px 80px rgba(91, 63, 206, 0.45);
-    text-shadow: 0 4px 0 rgba(0,0,0,0.18);
+    box-shadow: 0 18px 50px rgba(91, 63, 206, 0.4);
+    text-shadow: 0 3px 0 rgba(0,0,0,0.18);
     animation: pop 0.9s cubic-bezier(.34, 1.56, .64, 1), wiggle 1.2s ease-in-out 0.9s infinite;
   }
   @keyframes pop {
@@ -169,6 +179,50 @@ INDEX_HTML = """<!DOCTYPE html>
   @keyframes target-pulse {
     from { transform: scale(1); color: #5b3fce; }
     to { transform: scale(1.15); color: #ff7a91; }
+  }
+
+  /* Dance scene */
+  .animal-stage {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9998;
+    overflow: hidden;
+  }
+  .dance-floor {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 0;
+    height: 240px;
+    background: linear-gradient(180deg, transparent 0%, rgba(255,122,145,0.25) 40%, rgba(91,63,206,0.45) 100%);
+    animation: floor-flash 0.5s ease infinite alternate;
+  }
+  @keyframes floor-flash {
+    from { filter: hue-rotate(0deg) brightness(1); }
+    to   { filter: hue-rotate(80deg) brightness(1.3); }
+  }
+  .lottie-dancer {
+    position: absolute;
+    left: 50%;
+    bottom: 60px;
+    width: min(70vmin, 560px);
+    height: min(70vmin, 560px);
+    animation: dancer-entry 0.7s ease-out both;
+  }
+  @keyframes dancer-entry {
+    from { opacity: 0; transform: translate(-50%, 80px) scale(0.6); }
+    to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  }
+  .music-note {
+    position: absolute;
+    font-size: 32px;
+    opacity: 0;
+    animation: note-rise 3s linear forwards;
+  }
+  @keyframes note-rise {
+    0%   { opacity: 0; transform: translateY(0) rotate(0); }
+    15%  { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-300px) rotate(20deg); }
   }
 </style>
 </head>
@@ -225,6 +279,50 @@ INDEX_HTML = """<!DOCTYPE html>
     return audioCtx;
   }
 
+  function playCorrectSound() {
+    const ctx = getAudio();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const notes = [
+      { f: 659.25, t: 0.00, d: 0.12 },  // E5
+      { f: 987.77, t: 0.07, d: 0.20 },  // B5
+    ];
+    for (const n of notes) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(n.f, now + n.t);
+      gain.gain.setValueAtTime(0, now + n.t);
+      gain.gain.linearRampToValueAtTime(0.20, now + n.t + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + n.t + n.d);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + n.t);
+      osc.stop(now + n.t + n.d + 0.05);
+    }
+  }
+
+  function playWrongSound() {
+    const ctx = getAudio();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const notes = [
+      { f: 329.63, t: 0.00, d: 0.13 },  // E4
+      { f: 246.94, t: 0.10, d: 0.22 },  // B3 (descending fourth)
+    ];
+    for (const n of notes) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(n.f, now + n.t);
+      gain.gain.setValueAtTime(0, now + n.t);
+      gain.gain.linearRampToValueAtTime(0.16, now + n.t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + n.t + n.d);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + n.t);
+      osc.stop(now + n.t + n.d + 0.05);
+    }
+  }
+
   function playWinSound() {
     const ctx = getAudio();
     if (!ctx) return;
@@ -267,14 +365,67 @@ INDEX_HTML = """<!DOCTYPE html>
     }
   }
 
+  const LOTTIE_FILES = [
+    'cats_dance.json',
+    'cat_playing.json',
+    'cat_box.json',
+    'shiba_happy.json',
+    'shiba_relax.json',
+    'dog.json',
+  ];
+  const NOTES = ['🎵', '🎶', '🎼', '✨', '⭐'];
+
+  function runAnimalAnimation() {
+    const stage = document.createElement('div');
+    stage.className = 'animal-stage';
+    document.body.appendChild(stage);
+
+    const floor = document.createElement('div');
+    floor.className = 'dance-floor';
+    stage.appendChild(floor);
+
+    const picked = LOTTIE_FILES[Math.floor(Math.random() * LOTTIE_FILES.length)];
+    const slot = document.createElement('div');
+    slot.className = 'lottie-dancer';
+    stage.appendChild(slot);
+
+    if (window.lottie) {
+      try {
+        lottie.loadAnimation({
+          container: slot,
+          renderer: 'svg',
+          loop: true,
+          autoplay: true,
+          path: '/lottie/' + picked,
+        });
+      } catch (e) {
+        console.warn('lottie load failed for', picked, e);
+      }
+    }
+
+    const noteInterval = setInterval(() => {
+      const n = document.createElement('div');
+      n.className = 'music-note';
+      n.textContent = NOTES[Math.floor(Math.random() * NOTES.length)];
+      n.style.left = (Math.random() * 90 + 5) + 'vw';
+      n.style.bottom = (10 + Math.random() * 28) + '%';
+      stage.appendChild(n);
+      setTimeout(() => n.remove(), 3500);
+    }, 220);
+
+    setTimeout(() => clearInterval(noteInterval), 5000);
+    setTimeout(() => stage.remove(), 6500);
+  }
+
   function clearCelebration() {
-    document.querySelectorAll('.confetti-canvas, .win-overlay').forEach(el => el.remove());
+    document.querySelectorAll('.confetti-canvas, .win-overlay, .animal-stage').forEach(el => el.remove());
     targetEl.classList.remove('celebrate');
   }
 
   function celebrate() {
     clearCelebration();
     playWinSound();
+    runAnimalAnimation();
     targetEl.classList.add('celebrate');
 
     const overlay = document.createElement('div');
@@ -411,6 +562,11 @@ INDEX_HTML = """<!DOCTYPE html>
       renderFound(data.found);
       setProgress(data.found.length);
     }
+    if (data.status === 'correct' && !data.won) {
+      playCorrectSound();
+    } else if (data.status === 'wrong') {
+      playWrongSound();
+    }
     if (data.won) {
       won = true;
       setFeedback('You found them all! Press "New game" to play again.', 'win');
@@ -445,7 +601,7 @@ class GameState:
             self.required = set()
             for a in range(1, self.target):
                 b = self.target - a
-                if b > a:
+                if b >= a:
                     self.required.add((a, b))
             self.found = set()
             return self.target, len(self.required)
@@ -454,12 +610,6 @@ class GameState:
         with self.lock:
             if self.target is None:
                 return {"status": "invalid", "message": "Start a new game first."}
-
-            if a == b:
-                return {
-                    "status": "invalid",
-                    "message": f"The two numbers must be different. You entered {a} and {b}.",
-                }
 
             if a + b != self.target:
                 return {
@@ -510,6 +660,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/" or self.path.startswith("/?"):
             self._respond(200, INDEX_HTML, "text/html")
+        elif self.path.startswith("/lottie/"):
+            name = os.path.basename(self.path[len("/lottie/"):].split("?", 1)[0])
+            if not name.endswith(".json") or name.startswith("."):
+                self._respond(404, {"error": "Not found"})
+                return
+            full = os.path.join(LOTTIE_DIR, name)
+            try:
+                with open(full, "rb") as f:
+                    data = f.read()
+            except FileNotFoundError:
+                self._respond(404, {"error": "Not found"})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "public, max-age=3600")
+            self.end_headers()
+            self.wfile.write(data)
         else:
             self._respond(404, {"error": "Not found"})
 
