@@ -372,6 +372,18 @@ INDEX_HTML = """<!DOCTYPE html>
     'shiba_happy.json',
     'shiba_relax.json',
     'dog.json',
+    'lion.json',
+    'panda.json',
+    'zebra.json',
+    'giraffe.json',
+    'pig.json',
+    'elephant.json',
+    'fox.json',
+    'owl.json',
+    'monkey.json',
+    'sheep.json',
+    'cow.json',
+    'rabbit.json',
   ];
   const NOTES = ['🎵', '🎶', '🎼', '✨', '⭐'];
 
@@ -588,6 +600,58 @@ INDEX_HTML = """<!DOCTYPE html>
 """
 
 
+PREVIEW_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Lottie Preview</title>
+<script src="https://cdn.jsdelivr.net/npm/lottie-web@5.12.2/build/player/lottie.min.js"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f4f0ff; padding: 24px; margin: 0; color: #2b2b3d; }
+  h1 { color: #5b3fce; margin: 0 0 6px; }
+  .hint { color: #666; margin: 0 0 18px; font-size: 14px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: 0 4px 14px rgba(91, 63, 206, 0.10);
+    text-align: center;
+  }
+  .player { width: 200px; height: 200px; margin: 0 auto; }
+  .label {
+    margin-top: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: #444;
+    word-break: break-all;
+  }
+</style>
+</head>
+<body>
+<h1>Lottie Animation Preview</h1>
+<p class="hint">__COUNT__ animations — all playing simultaneously. Loaded from /lottie/.</p>
+<div class="grid">__CARDS__</div>
+<script>
+document.querySelectorAll('.player').forEach(el => {
+  lottie.loadAnimation({
+    container: el,
+    renderer: 'svg',
+    loop: true,
+    autoplay: true,
+    path: '/lottie/' + el.dataset.file,
+  });
+});
+</script>
+</body>
+</html>
+"""
+
+
 class GameState:
     def __init__(self):
         self.target = None
@@ -660,6 +724,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/" or self.path.startswith("/?"):
             self._respond(200, INDEX_HTML, "text/html")
+        elif self.path == "/preview" or self.path.startswith("/preview?"):
+            try:
+                files = sorted(
+                    f for f in os.listdir(LOTTIE_DIR) if f.endswith(".json")
+                )
+            except FileNotFoundError:
+                files = []
+            cards = "\n".join(
+                f'<div class="card"><div class="player" data-file="{f}"></div>'
+                f'<div class="label">{f}</div></div>'
+                for f in files
+            )
+            body = PREVIEW_HTML.replace("__COUNT__", str(len(files))).replace(
+                "__CARDS__", cards
+            )
+            self._respond(200, body, "text/html")
         elif self.path.startswith("/lottie/"):
             name = os.path.basename(self.path[len("/lottie/"):].split("?", 1)[0])
             if not name.endswith(".json") or name.startswith("."):
